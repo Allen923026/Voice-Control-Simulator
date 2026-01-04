@@ -10,6 +10,7 @@ import android.speech.SpeechRecognizer;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
@@ -24,6 +25,9 @@ public class SimulationActivity extends AppCompatActivity {
     private TextView tvStatus;
     private SpeechRecognizer speechRecognizer;
     private Intent speechIntent;
+
+    private Button btnBack;
+
 
     // 模式：0平面, 1斜面, 2會員(斜面+摩擦+自訂參數)
     private int mode = 0;
@@ -56,6 +60,17 @@ public class SimulationActivity extends AppCompatActivity {
             handler.postDelayed(this, 30);
         }
     };
+    // 定義意圖標籤 (Intent Tags)
+    private static final String INTENT_ACCELERATE = "ACCELERATE";
+    private static final String INTENT_STOP = "STOP";
+    private static final String INTENT_SLOW_DOWN = "SLOW_DOWN";
+    private static final String INTENT_UNKNOWN = "UNKNOWN";
+
+    // 定義語義叢集 (Semantic Clusters) - 模擬訓練集數據
+    private final String[] ACC_WORDS = {"加速", "快", "衝", "前進", "加力", "go", "faster", "奔跑"};
+    private final String[] STOP_WORDS = {"停止", "停", "站住", "不要動", "定格", "stop", "住手", "休息"};
+    private final String[] SLOW_WORDS = {"減速", "慢", "煞車", "阻力", "slow", "小聲"};
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,8 +79,19 @@ public class SimulationActivity extends AppCompatActivity {
 
         simulationView = findViewById(R.id.simulationView);
         tvStatus = findViewById(R.id.tvStatus);
+        btnBack = findViewById(R.id.btnBack);
 
         mode = getIntent().getIntExtra("MODE", 0);
+
+        btnBack.setOnClickListener(v -> {
+            // 1. 停止語音監聽以免背景持續執行
+            if (speechRecognizer != null) {
+                speechRecognizer.stopListening();
+                speechRecognizer.cancel();
+            }
+            // 2. 結束當前 Activity，回到上一頁
+            finish();
+        });
 
         // 模式初始化
         if (mode == 0) {
@@ -75,8 +101,8 @@ public class SimulationActivity extends AppCompatActivity {
             massKg = 5f;
 
             simulationView.setSlopeMode(false);          // 球不抬頭
-            simulationView.setShowSlopeOverlay(false);   // ❌ 不畫斜坡
-            simulationView.setBackgroundMode(false);     // ✅ 用「平面背景」
+            simulationView.setShowSlopeOverlay(false);
+            simulationView.setBackgroundMode(false);     // 用「平面背景」
 
             tvStatus.setText("模式：平面 (無重力 / 無摩擦)");
 
@@ -87,8 +113,8 @@ public class SimulationActivity extends AppCompatActivity {
             massKg = 5f;      // 預設質量
 
             simulationView.setSlopeMode(true);           // 球抬頭
-            simulationView.setShowSlopeOverlay(true);    // ✅ 畫斜坡
-            simulationView.setBackgroundMode(true);      // ✅ 用「斜面背景」
+            simulationView.setShowSlopeOverlay(true);    //  畫斜坡
+            simulationView.setBackgroundMode(true);      //  用「斜面背景」
 
             tvStatus.setText("模式：斜面 (45°，有重力)");
 
@@ -99,8 +125,8 @@ public class SimulationActivity extends AppCompatActivity {
             massKg = 5f;      // 可調
 
             simulationView.setSlopeMode(true);           // 球抬頭
-            simulationView.setShowSlopeOverlay(true);    // ✅ 畫斜坡
-            simulationView.setBackgroundMode(true);      // ✅ 用「斜面背景」
+            simulationView.setShowSlopeOverlay(true);    //  畫斜坡
+            simulationView.setBackgroundMode(true);      //  用「斜面背景」
 
             tvStatus.setText("會員專屬：自訂 m / θ / μ");
             setupMemberPanel(); // 加入三條 SeekBar
@@ -219,9 +245,9 @@ public class SimulationActivity extends AppCompatActivity {
             localMu = 0f;
             m = 5f;
         } else if (mode == 1) {
-            theta = 45f; // ✅ 一般斜面固定 45°
-            localMu = 0f; // ✅ 一般斜面不加摩擦
-            m = 5f;       // ✅ 一般斜面預設質量
+            theta = 45f;  //  一般斜面固定 45°
+            localMu = 0f; //  一般斜面不加摩擦
+            m = 5f;       //  一般斜面預設質量
         } else { // mode == 2
             theta = angleDeg;
             localMu = mu;
@@ -268,21 +294,31 @@ public class SimulationActivity extends AppCompatActivity {
         speechIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3);
 
         speechRecognizer.setRecognitionListener(new RecognitionListener() {
+
             @Override
             public void onResults(Bundle results) {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
-                if (matches != null) {
-                    for (String word : matches) {
-                        if (word.contains("加速") || word.contains("跑") || word.contains("快")) {
-                            // ✅ 喊一次 = 給一次力（會除以 m 變成加速度）
-                            pendingForce = SHOUT_FORCE;
-                            tvStatus.setText("偵測到指令：加速！（F=" + SHOUT_FORCE + "）");
-                            break;
-                        }
+
+                if (matches != null && !matches.isEmpty()) {
+                    // --- AI 處理流程開始 ---
+
+                    // 1. 意圖識別：對語音辨識的多個候選結果進行掃描
+                    String finalIntent = INTENT_UNKNOWN;
+                    for (String candidate : matches) {
+                        finalIntent = classifyIntent(candidate);
+                        // 只要其中一個候選詞匹配到意圖，就決定是它了
+                        if (!finalIntent.equals(INTENT_UNKNOWN)) break;
                     }
+                    // 2. 執行動作：根據識別出的意圖來操作物理引擎
+                    executeCommand(finalIntent);
+
                 }
+
+                // 自動重新啟動監聽（保持持續控制）
                 speechRecognizer.startListening(speechIntent);
             }
+
+
 
             @Override
             public void onError(int error) {
@@ -301,10 +337,50 @@ public class SimulationActivity extends AppCompatActivity {
         speechRecognizer.startListening(speechIntent);
     }
 
+
+
+    // 模擬 AI 分類器
+    private String classifyIntent(String input) {
+        if (input == null) return INTENT_UNKNOWN;
+        String cleanInput = input.toLowerCase().replaceAll("[請幫我、。！?？]", "").trim();
+
+        for (String word : ACC_WORDS) if (cleanInput.contains(word)) return INTENT_ACCELERATE;
+        for (String word : STOP_WORDS) if (cleanInput.contains(word)) return INTENT_STOP;
+        for (String word : SLOW_WORDS) if (cleanInput.contains(word)) return INTENT_SLOW_DOWN;
+
+        return INTENT_UNKNOWN;
+    }
+
+    // 統一命令執行中心
+    private void executeCommand(String intent) {
+        switch (intent) {
+            case INTENT_ACCELERATE:
+                pendingForce = SHOUT_FORCE;
+                tvStatus.setText("AI 識別意圖：加速 (F=" + SHOUT_FORCE + ")");
+                break;
+            case INTENT_STOP:
+                simulationView.setSpeed(0f);
+                pendingForce = 0f;
+                tvStatus.setText("AI 識別意圖：立即停止");
+                break;
+            case INTENT_SLOW_DOWN:
+                float currentS = simulationView.getSpeed();
+                simulationView.setSpeed(currentS * 0.5f);
+                tvStatus.setText("AI 識別意圖：煞車減速");
+                break;
+        }
+    }
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (speechRecognizer != null) speechRecognizer.destroy();
-        handler.removeCallbacks(physicsRunnable);
+        // 停止 Handler 防止記憶體洩漏
+        if (handler != null) {
+            handler.removeCallbacks(physicsRunnable);
+        }
+        // 徹底銷毀語音辨識
+        if (speechRecognizer != null) {
+            speechRecognizer.destroy();
+        }
     }
 }

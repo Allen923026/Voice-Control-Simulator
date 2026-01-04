@@ -14,11 +14,11 @@ public class SimulationView extends View {
 
     private Bitmap ballBitmap;
 
-    // ✅ 兩張背景
+    // 兩張背景
     private Bitmap bgFlatBitmap;     // 平面背景
     private Bitmap bgSlopeBitmap;    // 斜面/會員背景
 
-    // ✅ 斜坡 overlay（去背）
+    // 斜坡 overlay（去背）
     private Bitmap slopeBitmap;
 
     // 縮放後
@@ -38,7 +38,7 @@ public class SimulationView extends View {
     // 球視覺旋轉
     private float ballRotation = 0f;
 
-    // ===== 斜坡 overlay 參數（你原本那套保留）=====
+    // ===== 斜坡 overlay 參數 =====
     private float slopeHeightRatio = 0.45f;          // 斜坡高度佔螢幕比例
     private final float SLOPE_WIDTH_SCALE = 1.2f;    // 左右放大避免縫
     private final float SLOPE_VERTICAL_OFFSET = 80f; // 往下推貼底（可調）
@@ -112,10 +112,10 @@ public class SimulationView extends View {
         super.onSizeChanged(w, h, oldw, oldh);
         if (w <= 0 || h <= 0) return;
 
-        // ✅ 背景依模式縮放（平面/斜面）
+        //  背景依模式縮放（平面/斜面）
         rebuildBackgroundScaled(w, h);
 
-        // ✅ 斜坡 overlay 縮放
+        //  斜坡 overlay 縮放
         int finalSlopeW = (int) (w * SLOPE_WIDTH_SCALE);
         int finalSlopeH = (int) (h * slopeHeightRatio);
         slopeScaled = Bitmap.createScaledBitmap(slopeBitmap, finalSlopeW, finalSlopeH, true);
