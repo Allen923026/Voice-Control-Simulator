@@ -73,6 +73,9 @@ public class SimulationActivity extends AppCompatActivity {
     private final String[] SLOW_WORDS = {"減速", "慢", "煞車", "阻力", "slow", "小聲"};
 
 
+    private RealTimeGraphView graphView;
+    private float currentAcceleration = 0f; // 用來紀錄當前的加速度數值
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -137,6 +140,21 @@ public class SimulationActivity extends AppCompatActivity {
 
         initVoiceRecognition();
         handler.post(physicsRunnable);
+
+        //ViewGroup
+        ViewGroup root = findViewById(android.R.id.content);
+        graphView = new RealTimeGraphView(this, null);
+
+        // 設定圖表大小
+        android.widget.FrameLayout.LayoutParams graphLp = new android.widget.FrameLayout.LayoutParams(500, 300);
+        graphLp.gravity = Gravity.TOP | Gravity.END;
+        graphLp.rightMargin = dp(10);
+        graphLp.topMargin = dp(200);
+        graphView.setLayoutParams(graphLp);
+        graphView.setBackgroundColor(0x66000000); // 半透明黑底，專業感！
+
+        root.addView(graphView);
+
     }
 
     // =============================
@@ -236,53 +254,39 @@ public class SimulationActivity extends AppCompatActivity {
     // =============================
     private void updatePhysics() {
         float speed = simulationView.getSpeed();
+        float m = Math.max(0.1f, massKg);
+        float netAcceleration = 0f; // 本幀的總合加速度
 
-        // 角度/摩擦/質量：依模式決定
-        float theta = 0f;
-        float localMu = 0f;
-        float m = 5f;
-
-        if (mode == 0) {
-            theta = 0f;
-            localMu = 0f;
-            m = 5f;
-        } else if (mode == 1) {
-            theta = 45f;  //  一般斜面固定 45°
-            localMu = 0f; //  一般斜面不加摩擦
-            m = 5f;       //  一般斜面預設質量
-        } else { // mode == 2
-            theta = angleDeg;
-            localMu = mu;
-            m = Math.max(0.1f, massKg);
-        }
-
-        // 1) 語音喊一次：施加一瞬間「力」 → a = F/m → Δv = a*dt
+        // 1) 計算語音推力產生的加速度
         if (pendingForce > 0f) {
             float aPush = (pendingForce / m);
+            netAcceleration += aPush;
             speed += (aPush * DT) * PIXEL_SCALE;
             pendingForce = 0f;
         }
 
-        // 2) 斜面重力分量（沿斜面向下）與摩擦（反向阻擋運動）
-        if (speed > 0f && (mode == 1 || mode == 2)) {
-            double rad = Math.toRadians(theta);
-
-            // 重力沿斜面分量：g*sinθ
+        // 2) 計算斜面重力與摩擦產生的加速度
+        if (mode == 1 || mode == 2) {
+            double rad = Math.toRadians(angleDeg);
             float aG = (float) (G * Math.sin(rad));
+            float aFric = (float) (mu * G * Math.cos(rad));
 
-            // 正向力：g*cosθ → 摩擦：μ*g*cosθ
-            float aFric = (float) (localMu * G * Math.cos(rad));
+            // 總合加速度 = 重力向下 - 摩擦力向上 (簡化)
+            float gravitationalDecel = Math.max(0, aG - aFric);
+            netAcceleration -= gravitationalDecel;
 
-            // 合成減速度（都會讓 speed 變小）
-            float aDecel = aG + aFric;
-
-            speed -= (aDecel * DT) * PIXEL_SCALE;
+            if (speed > 0) {
+                speed -= (gravitationalDecel * DT) * PIXEL_SCALE;
+            }
         }
 
-        // 3) 不允許負值
         if (speed < 0f) speed = 0f;
-
         simulationView.setSpeed(speed);
+
+        // 3) 將數據傳給圖表 (為了讓圖表明顯，加速度乘以一個倍率)
+        if (graphView != null) {
+            graphView.addData(speed, Math.abs(netAcceleration * 5));
+        }
     }
 
     // =============================
@@ -302,21 +306,21 @@ public class SimulationActivity extends AppCompatActivity {
                 ArrayList<String> matches = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
 
                 if (matches != null && !matches.isEmpty()) {
-                    // --- AI 處理流程開始 ---
+                    // AI 處理
 
-                    // 1. 意圖識別：對語音辨識的多個候選結果進行掃描
+                    // 對語音辨識的多個候選結果進行掃描
                     String finalIntent = INTENT_UNKNOWN;
                     for (String candidate : matches) {
                         finalIntent = classifyIntent(candidate);
                         // 只要其中一個候選詞匹配到意圖，就決定是它了
                         if (!finalIntent.equals(INTENT_UNKNOWN)) break;
                     }
-                    // 2. 執行動作：根據識別出的意圖來操作物理引擎
+                    // 根據識別出的意圖來操作物理引擎
                     executeCommand(finalIntent);
 
                 }
 
-                // 自動重新啟動監聽（保持持續控制）
+                // 自動重新啟動監聽
                 speechRecognizer.startListening(speechIntent);
             }
 
