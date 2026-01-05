@@ -148,7 +148,7 @@ public class SimulationActivity extends AppCompatActivity {
         memberPanel.setPadding(dp(16), dp(8), dp(16), dp(16));
         memberPanel.setBackgroundColor(0x33FFFFFF);
 
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+        android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
         );

@@ -73,7 +73,7 @@ public class SimulationView extends View {
         invalidate();
     }
 
-    /** 平面/斜面背景切換 */
+    /** 平面、斜面背景切換 */
     public void setBackgroundMode(boolean useSlopeBg) {
         this.useSlopeBackground = useSlopeBg;
         if (getWidth() > 0 && getHeight() > 0) {
