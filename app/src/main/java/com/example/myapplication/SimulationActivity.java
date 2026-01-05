@@ -14,6 +14,7 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -85,6 +86,7 @@ public class SimulationActivity extends AppCompatActivity {
 
         btnBack.setOnClickListener(v -> {
             // 1. 停止語音監聽以免背景持續執行
+            Toast.makeText(this,"你回到主畫面",Toast.LENGTH_LONG).show();
             if (speechRecognizer != null) {
                 speechRecognizer.stopListening();
                 speechRecognizer.cancel();

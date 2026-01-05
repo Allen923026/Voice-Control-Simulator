@@ -14,6 +14,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import android.Manifest;
+import android.widget.Toast;
+
 public class MainActivity extends AppCompatActivity {
 
     @Override
@@ -29,13 +31,14 @@ public class MainActivity extends AppCompatActivity {
 
         Button btnFlat = findViewById(R.id.btnFlat);
         Button btnSlope = findViewById(R.id.btnSlope);
-        Button btnMember = findViewById(R.id.btnMember); // 對應你的「自訂參數/會員專屬」按鈕
+        Button btnMember = findViewById(R.id.btnMember);
 
         // 平面模式 (Mode 0)
         btnFlat.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startGame(0);
+                Toast.makeText(MainActivity.this,"你選擇平面模式",Toast.LENGTH_LONG).show();
             }
         });
 
@@ -44,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 startGame(1);
+                Toast.makeText(MainActivity.this,"你選擇斜面模式",Toast.LENGTH_LONG).show();
             }
         });
 
@@ -52,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 startGame(2);
+                Toast.makeText(MainActivity.this,"你選擇會員專屬模式",Toast.LENGTH_LONG).show();
             }
         });
     }
